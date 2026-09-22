@@ -3,6 +3,8 @@ package de.pdfleser.app
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.content.pm.SigningInfo
 import android.net.Uri
 import android.provider.Settings
 import androidx.core.content.FileProvider
@@ -12,6 +14,11 @@ import java.io.FileOutputStream
 import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
+import java.security.MessageDigest
+
+/** Das Update ist mit einem anderen Schlüssel unterschrieben als die installierte App. */
+class SignatureMismatchException(val installed: String, val update: String) :
+    IOException("Das Update ist anders unterschrieben als die installierte App.")
 
 data class UpdateInfo(val versionCode: Long, val title: String, val notes: String, val apkUrl: String, val size: Long)
 
@@ -111,7 +118,41 @@ object Updater {
             f.delete()
             throw IOException("Die heruntergeladene Datei ist keine gültige PDF-Leser-App.")
         }
+        // Android installiert Updates nur mit derselben Unterschrift – vorher selbst prüfen,
+        // damit es eine klare Meldung gibt statt „App nicht installiert“.
+        val mine = installedSigners(ctx)
+        val theirs = apkSigners(ctx, f)
+        if (mine.isNotEmpty() && theirs.isNotEmpty() && mine.intersect(theirs).isEmpty()) {
+            f.delete()
+            throw SignatureMismatchException(mine.first(), theirs.first())
+        }
         return f
+    }
+
+    /** Heruntergeladene Update-Dateien löschen (beim App-Start, nach Update oder Fehlschlag). */
+    fun cleanup(ctx: Context) {
+        File(ctx.cacheDir, "updates").listFiles()?.forEach { it.delete() }
+    }
+
+    private fun digests(info: SigningInfo?): Set<String> {
+        if (info == null) return emptySet()
+        val sigs = (if (info.hasMultipleSigners()) info.apkContentsSigners else info.signingCertificateHistory)
+            ?: return emptySet()
+        return sigs.map { s ->
+            MessageDigest.getInstance("SHA-256").digest(s.toByteArray()).joinToString(":") { b -> "%02X".format(b) }
+        }.toSet()
+    }
+
+    fun installedSigners(ctx: Context): Set<String> = try {
+        digests(ctx.packageManager.getPackageInfo(ctx.packageName, PackageManager.GET_SIGNING_CERTIFICATES).signingInfo)
+    } catch (e: Exception) {
+        emptySet()
+    }
+
+    private fun apkSigners(ctx: Context, f: File): Set<String> = try {
+        digests(ctx.packageManager.getPackageArchiveInfo(f.path, PackageManager.GET_SIGNING_CERTIFICATES)?.signingInfo)
+    } catch (e: Exception) {
+        emptySet()
     }
 
     /** Darf die App Updates installieren? (Einmalig in den Einstellungen erlauben.) */

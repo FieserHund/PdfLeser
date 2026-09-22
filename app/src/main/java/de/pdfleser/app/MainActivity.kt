@@ -74,6 +74,8 @@ class MainActivity : AppCompatActivity() {
 
         if (savedInstanceState == null) {
             handleIntent(intent)
+            // Übrig gebliebene Update-Dateien wegräumen (nach erfolgreichem oder fehlgeschlagenem Update).
+            lifecycleScope.launch(Dispatchers.IO) { Updater.cleanup(applicationContext) }
             checkForUpdates(manual = false)
         }
     }
@@ -164,9 +166,23 @@ class MainActivity : AppCompatActivity() {
                     Updater.openInstallPermission(this@MainActivity)
                 }
             }.onFailure {
-                toast(it.message ?: "Download fehlgeschlagen.")
+                if (it is SignatureMismatchException) showSignatureProblem(it)
+                else toast(it.message ?: "Download fehlgeschlagen.")
             }
         }
+    }
+
+    private fun showSignatureProblem(e: SignatureMismatchException) {
+        MaterialAlertDialogBuilder(this)
+            .setTitle("Update passt nicht zur installierten App")
+            .setMessage(
+                "Das Update von GitHub ist mit einem anderen Schlüssel unterschrieben als deine App. " +
+                    "Android würde es deshalb ablehnen – die Datei wurde gleich wieder gelöscht.\n\n" +
+                    "Installierte App:\n${e.installed.take(23)}…\n\nUpdate:\n${e.update.take(23)}…\n\n" +
+                    "Im GitHub-Protokoll (Schritt „Signaturschlüssel einrichten“) steht, mit welchem Schlüssel gebaut wurde."
+            )
+            .setPositiveButton("OK", null)
+            .show()
     }
 
     /** GitHub-Repository festlegen, aus dem Updates geladen werden. */

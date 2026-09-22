@@ -6,6 +6,9 @@ plugins {
 // Versionsnummer steigt automatisch (Minuten seit 1970) – lokal wie auf GitHub.
 val autoVersionCode: Int = (project.findProperty("versionCode") as String?)?.toIntOrNull()
     ?: (System.currentTimeMillis() / 60_000L).toInt()
+// Auf GitHub wird ausdrücklich mit dem hinterlegten Schlüssel signiert (Pfad per -PsigningStore).
+// Lokal (Android Studio) bleibt es beim normalen Debug-Schlüssel des Laptops – das ist derselbe.
+val sharedKeystore: String? = (project.findProperty("signingStore") as String?)?.takeIf { it.isNotBlank() }
 // GitHub-Repository für Updates („benutzer/repo“), siehe gradle.properties
 val updateRepo: String = (project.findProperty("updateRepo") as String?).orEmpty().trim()
 
@@ -22,10 +25,21 @@ android {
         buildConfigField("String", "UPDATE_REPO", "\"$updateRepo\"")
     }
 
+    signingConfigs {
+        sharedKeystore?.let { path ->
+            create("shared") {
+                storeFile = file(path)
+                storePassword = "android"
+                keyAlias = "androiddebugkey"
+                keyPassword = "android"
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.findByName("shared") ?: signingConfigs.getByName("debug")
         }
     }
     buildFeatures {
