@@ -1,0 +1,607 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <androidx.viewpager2.widget.ViewPager2
+        android:id="@+id/pager"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+
+    <TextView
+        android:id="@+id/footer"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|center_horizontal"
+        android:textSize="12sp" />
+
+    <ProgressBar
+        android:id="@+id/loading"
+        android:layout_width="44dp"
+        android:layout_height="44dp"
+        android:layout_gravity="center"
+        android:visibility="gone" />
+
+    <!-- Obere Leiste -->
+    <LinearLayout
+        android:id="@+id/topBar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top"
+        android:background="?attr/colorSurface"
+        android:elevation="6dp"
+        android:gravity="center_vertical"
+        android:minHeight="56dp"
+        android:orientation="horizontal"
+        android:visibility="gone">
+
+        <ImageButton
+            android:id="@+id/btnBack"
+            android:layout_width="48dp"
+            android:layout_height="56dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="Zurück zur Bibliothek"
+            android:src="@drawable/ic_arrow_back" />
+
+        <TextView
+            android:id="@+id/bookTitle"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:ellipsize="end"
+            android:paddingStart="4dp"
+            android:paddingEnd="4dp"
+            android:singleLine="true"
+            android:textColor="?attr/colorOnSurface"
+            android:textSize="17sp" />
+
+        <ImageButton
+            android:id="@+id/btnBookmark"
+            android:layout_width="44dp"
+            android:layout_height="48dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="Lesezeichen setzen"
+            android:src="@drawable/ic_bookmark_border" />
+
+        <ImageButton
+            android:id="@+id/btnToc"
+            android:layout_width="44dp"
+            android:layout_height="48dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="Inhalt, Lesezeichen und Markierungen"
+            android:src="@drawable/ic_toc" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnMode"
+            style="@style/Widget.Material3.Button.TextButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:minWidth="0dp"
+            android:text="Original" />
+    </LinearLayout>
+
+    <!-- Untere Leiste: Fortschritt + Darstellung -->
+    <LinearLayout
+        android:id="@+id/bottomBar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom"
+        android:background="?attr/colorSurface"
+        android:elevation="6dp"
+        android:orientation="vertical"
+        android:visibility="gone">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <TextView
+                android:id="@+id/pageLabel"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:textColor="?attr/colorOnSurface"
+                android:textSize="14sp" />
+
+            <ImageButton
+                android:id="@+id/btnVocab"
+                android:layout_width="44dp"
+                android:layout_height="48dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="Vokabelliste"
+                android:src="@drawable/ic_school" />
+
+            <ImageButton
+                android:id="@+id/btnRead"
+                android:layout_width="44dp"
+                android:layout_height="48dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="Vorlesen"
+                android:src="@drawable/ic_headphones" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnSettings"
+                style="@style/Widget.Material3.Button.TonalButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="4dp"
+                android:text="Aa" />
+        </LinearLayout>
+
+        <SeekBar
+            android:id="@+id/seek"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:paddingTop="8dp"
+            android:paddingBottom="8dp" />
+    </LinearLayout>
+
+    <!-- Vorlesen -->
+    <com.google.android.material.card.MaterialCardView
+        android:id="@+id/player"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|center_horizontal"
+        android:visibility="gone"
+        app:cardCornerRadius="28dp"
+        app:cardElevation="6dp">
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingStart="6dp"
+            android:paddingEnd="6dp">
+
+            <ImageButton
+                android:id="@+id/btnPlay"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="Pause"
+                android:src="@drawable/ic_pause" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnRate"
+                style="@style/Widget.Material3.Button.TextButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:minWidth="0dp"
+                android:text="1,0×" />
+
+            <ImageButton
+                android:id="@+id/btnStop"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="Vorlesen beenden"
+                android:src="@drawable/ic_stop" />
+        </LinearLayout>
+    </com.google.android.material.card.MaterialCardView>
+
+    <!-- Darstellung -->
+    <ScrollView
+        android:id="@+id/settingsPanel"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom"
+        android:background="?attr/colorSurface"
+        android:elevation="8dp"
+        android:visibility="gone">
+
+        <LinearLayout
+            android:id="@+id/settingsInner"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Schriftgröße"
+                    android:textColor="?attr/colorOnSurface"
+                    android:textSize="16sp" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnSmaller"
+                    style="@style/Widget.Material3.Button.OutlinedButton"
+                    android:layout_width="56dp"
+                    android:layout_height="wrap_content"
+                    android:minWidth="0dp"
+                    android:paddingStart="0dp"
+                    android:paddingEnd="0dp"
+                    android:text="A−"
+                    android:textSize="14sp" />
+
+                <TextView
+                    android:id="@+id/fontSizeValue"
+                    android:layout_width="48dp"
+                    android:layout_height="wrap_content"
+                    android:gravity="center"
+                    android:textColor="?attr/colorOnSurface"
+                    android:textSize="17sp" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnBigger"
+                    style="@style/Widget.Material3.Button.OutlinedButton"
+                    android:layout_width="56dp"
+                    android:layout_height="wrap_content"
+                    android:minWidth="0dp"
+                    android:paddingStart="0dp"
+                    android:paddingEnd="0dp"
+                    android:text="A+"
+                    android:textSize="18sp" />
+            </LinearLayout>
+
+            <TextView style="@style/SettingsLabel" android:text="Farben" />
+
+            <com.google.android.material.button.MaterialButtonToggleGroup
+                android:id="@+id/groupTheme"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                app:selectionRequired="true"
+                app:singleSelection="true">
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/theme0"
+                    style="@style/SegButton"
+                    android:text="Hell" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/theme1"
+                    style="@style/SegButton"
+                    android:text="Sepia" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/theme2"
+                    style="@style/SegButton"
+                    android:text="Dunkel" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/theme3"
+                    style="@style/SegButton"
+                    android:text="Nacht" />
+            </com.google.android.material.button.MaterialButtonToggleGroup>
+
+            <TextView style="@style/SettingsLabel" android:text="Schriftart" />
+
+            <com.google.android.material.button.MaterialButtonToggleGroup
+                android:id="@+id/groupFont"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                app:selectionRequired="true"
+                app:singleSelection="true">
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/fontSerif"
+                    style="@style/SegButton"
+                    android:fontFamily="serif"
+                    android:text="Serif" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/fontSans"
+                    style="@style/SegButton"
+                    android:fontFamily="sans-serif"
+                    android:text="Sans" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/fontCond"
+                    style="@style/SegButton"
+                    android:fontFamily="sans-serif-condensed"
+                    android:text="Schmal" />
+            </com.google.android.material.button.MaterialButtonToggleGroup>
+
+            <TextView style="@style/SettingsLabel" android:text="Zeilenabstand" />
+
+            <com.google.android.material.button.MaterialButtonToggleGroup
+                android:id="@+id/groupSpacing"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                app:selectionRequired="true"
+                app:singleSelection="true">
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/spacing0"
+                    style="@style/SegButton"
+                    android:text="Eng" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/spacing1"
+                    style="@style/SegButton"
+                    android:text="Normal" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/spacing2"
+                    style="@style/SegButton"
+                    android:text="Weit" />
+            </com.google.android.material.button.MaterialButtonToggleGroup>
+
+            <TextView style="@style/SettingsLabel" android:text="Seitenrand" />
+
+            <com.google.android.material.button.MaterialButtonToggleGroup
+                android:id="@+id/groupMargin"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                app:selectionRequired="true"
+                app:singleSelection="true">
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/margin0"
+                    style="@style/SegButton"
+                    android:text="Schmal" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/margin1"
+                    style="@style/SegButton"
+                    android:text="Mittel" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/margin2"
+                    style="@style/SegButton"
+                    android:text="Breit" />
+            </com.google.android.material.button.MaterialButtonToggleGroup>
+
+            <TextView style="@style/SettingsLabel" android:text="Absätze (dieses Buch)" />
+
+            <com.google.android.material.button.MaterialButtonToggleGroup
+                android:id="@+id/groupPara"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                app:selectionRequired="true"
+                app:singleSelection="true">
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/paraAuto"
+                    style="@style/SegButton"
+                    android:text="Automatisch" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/paraOff"
+                    style="@style/SegButton"
+                    android:text="Aus (Fließtext)" />
+            </com.google.android.material.button.MaterialButtonToggleGroup>
+
+            <TextView style="@style/SettingsLabel" android:text="Helligkeit" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <SeekBar
+                    android:id="@+id/seekBrightness"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:max="100"
+                    android:progress="40" />
+
+                <com.google.android.material.materialswitch.MaterialSwitch
+                    android:id="@+id/swAutoBrightness"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="System" />
+            </LinearLayout>
+
+            <com.google.android.material.materialswitch.MaterialSwitch
+                android:id="@+id/swAutoVocab"
+                style="@style/SettingsSwitch"
+                android:layout_marginTop="10dp"
+                android:text="Nachgeschlagene Wörter in der Vokabelliste speichern" />
+
+            <com.google.android.material.materialswitch.MaterialSwitch
+                android:id="@+id/swDefinition"
+                style="@style/SettingsSwitch"
+                android:text="Englische Definitionen anzeigen" />
+
+            <com.google.android.material.materialswitch.MaterialSwitch
+                android:id="@+id/swJustify"
+                style="@style/SettingsSwitch"
+                android:layout_marginTop="10dp"
+                android:text="Blocksatz mit Silbentrennung" />
+
+            <com.google.android.material.materialswitch.MaterialSwitch
+                android:id="@+id/swFullscreen"
+                style="@style/SettingsSwitch"
+                android:text="Vollbild" />
+
+            <com.google.android.material.materialswitch.MaterialSwitch
+                android:id="@+id/swVolume"
+                style="@style/SettingsSwitch"
+                android:text="Mit Lautstärketasten blättern" />
+
+            <com.google.android.material.materialswitch.MaterialSwitch
+                android:id="@+id/swKeepOn"
+                style="@style/SettingsSwitch"
+                android:text="Bildschirm bleibt beim Lesen an" />
+        </LinearLayout>
+    </ScrollView>
+
+    <!-- Nachschlage-Karte: Übersetzung, englische Definition, Aktionen -->
+    <com.google.android.material.card.MaterialCardView
+        android:id="@+id/transCard"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom"
+        android:visibility="gone"
+        app:cardCornerRadius="18dp"
+        app:cardElevation="10dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingStart="18dp"
+            android:paddingTop="6dp"
+            android:paddingEnd="4dp"
+            android:paddingBottom="4dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:id="@+id/transSource"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:ellipsize="end"
+                    android:maxLines="3"
+                    android:textColor="?attr/colorOnSurface"
+                    android:textSize="16sp"
+                    android:textStyle="bold" />
+
+                <ImageButton
+                    android:id="@+id/btnSpeak"
+                    android:layout_width="42dp"
+                    android:layout_height="44dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="Aussprechen"
+                    android:src="@drawable/ic_volume_up" />
+
+                <ImageButton
+                    android:id="@+id/btnStar"
+                    android:layout_width="42dp"
+                    android:layout_height="44dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="In Vokabelliste speichern"
+                    android:src="@drawable/ic_star_border" />
+
+                <ImageButton
+                    android:id="@+id/transClose"
+                    android:layout_width="42dp"
+                    android:layout_height="44dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="Schließen"
+                    android:src="@drawable/ic_close" />
+            </LinearLayout>
+
+            <de.pdfleser.app.MaxHeightScrollView
+                android:id="@+id/transScroll"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="14dp"
+                android:fadeScrollbars="false"
+                android:scrollbars="vertical">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical">
+
+                    <ProgressBar
+                        android:id="@+id/transProgress"
+                        style="?android:attr/progressBarStyleHorizontal"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:indeterminate="true"
+                        android:visibility="gone" />
+
+                    <TextView
+                        android:id="@+id/transResult"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:textColor="?attr/colorOnSurface"
+                        android:textSize="21sp" />
+
+                    <TextView
+                        android:id="@+id/transDict"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="6dp"
+                        android:lineSpacingMultiplier="1.2"
+                        android:textColor="?attr/colorOnSurfaceVariant"
+                        android:textSize="14sp"
+                        android:visibility="gone" />
+
+                    <LinearLayout
+                        android:id="@+id/defSection"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:orientation="vertical"
+                        android:visibility="gone">
+
+                        <View
+                            android:layout_width="match_parent"
+                            android:layout_height="1dp"
+                            android:layout_marginBottom="8dp"
+                            android:background="?attr/colorOutlineVariant" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:letterSpacing="0.08"
+                            android:text="ENGLISH DICTIONARY"
+                            android:textColor="?attr/colorOnSurfaceVariant"
+                            android:textSize="11sp" />
+
+                        <ProgressBar
+                            android:id="@+id/defProgress"
+                            style="?android:attr/progressBarStyleHorizontal"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:indeterminate="true"
+                            android:visibility="gone" />
+
+                        <TextView
+                            android:id="@+id/defText"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
+                            android:lineSpacingMultiplier="1.2"
+                            android:textColor="?attr/colorOnSurface"
+                            android:textSize="15sp" />
+                    </LinearLayout>
+                </LinearLayout>
+            </de.pdfleser.app.MaxHeightScrollView>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="end"
+                android:orientation="horizontal">
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnHighlight"
+                    style="@style/Widget.Material3.Button.TextButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:minWidth="0dp"
+                    android:text="Markieren" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/transCopy"
+                    style="@style/Widget.Material3.Button.TextButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:minWidth="0dp"
+                    android:text="Kopieren" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/transGoogle"
+                    style="@style/Widget.Material3.Button.TextButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:minWidth="0dp"
+                    android:text="Google" />
+            </LinearLayout>
+        </LinearLayout>
+    </com.google.android.material.card.MaterialCardView>
+</FrameLayout>
