@@ -23,7 +23,8 @@ data class DictEntry(val word: String, val phonetic: String, val senses: List<Se
  * Findet auch Grundformen: "cats" → "cat", "running" → "run", "studied" → "study".
  */
 object Dictionary {
-    private const val UA = "PdfLeser/1.0 (private Android-App; Wörterbuch-Nachschlagen)"
+    private const val UA =
+        "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36"
     private val cache = LruCache<String, DictEntry>(200)
     private val notFound = Collections.synchronizedSet(HashSet<String>())
 
@@ -97,7 +98,9 @@ object Dictionary {
             con.readTimeout = 8000
             con.setRequestProperty("User-Agent", UA)
             con.setRequestProperty("Accept", "application/json")
+            con.setRequestProperty("Accept-Language", "en;q=0.9")
             val code = con.responseCode
+            if (code == 429 || code == 403 || code == 503) throw RateLimitedException()
             val stream = if (code in 200..299) con.inputStream else con.errorStream
             val body = stream?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }.orEmpty()
             return Pair(code, body)

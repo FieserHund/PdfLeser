@@ -330,6 +330,22 @@ class ReaderViewModel(app: Application) : AndroidViewModel(app) {
     /*  Nachschlagen: Übersetzung + englische Definition + Vokabelliste     */
     /* ------------------------------------------------------------------ */
 
+    /** Verständliche Meldung statt pauschal „keine Verbindung“ – nennt die echte Ursache. */
+    private fun reason(e: Throwable?, what: String): String = when (e) {
+        is NoNetworkException -> "Keine Internetverbindung – $what nicht möglich."
+        is RateLimitedException ->
+            "Zu viele Abfragen in kurzer Zeit: Der Dienst sperrt vorübergehend. " +
+                "In einigen Minuten geht es wieder. (Zum erneuten Versuch antippen.)"
+        is java.net.UnknownHostException -> "Der Dienst ist nicht erreichbar (DNS). Zum erneuten Versuch antippen."
+        is java.net.SocketTimeoutException -> "Zeitüberschreitung – Verbindung zu langsam. Zum erneuten Versuch antippen."
+        else -> "$what: " + (e?.message ?: "gerade nicht möglich") + " (zum erneuten Versuch antippen)"
+    }
+
+    /** Dieselbe Auswahl noch einmal nachschlagen. */
+    fun retryLookup() {
+        lookup.value?.let { startLookup(it.sel) }
+    }
+
     private inline fun updateLookup(f: (LookupState) -> LookupState) {
         val cur = lookup.value ?: return
         lookup.value = f(cur)
@@ -350,7 +366,7 @@ class ReaderViewModel(app: Application) : AndroidViewModel(app) {
 
             val tJob = async {
                 try {
-                    Result.success(Translator.translate(sel.text))
+                    Result.success(Translator.translate(app, sel.text))
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: Exception) {
@@ -372,7 +388,7 @@ class ReaderViewModel(app: Application) : AndroidViewModel(app) {
                 it.copy(
                     transLoading = false,
                     translation = t.getOrNull(),
-                    transError = if (t.isFailure) "Keine Verbindung – Übersetzung gerade nicht möglich." else null
+                    transError = if (t.isFailure) reason(t.exceptionOrNull(), "Übersetzung") else null
                 )
             }
             if (dJob != null) {
@@ -382,7 +398,7 @@ class ReaderViewModel(app: Application) : AndroidViewModel(app) {
                         defLoading = false,
                         definition = d.getOrNull(),
                         defError = when {
-                            d.isFailure -> "Keine Verbindung zum Wörterbuch."
+                            d.isFailure -> reason(d.exceptionOrNull(), "Wörterbuch")
                             d.getOrNull() == null -> "Keine englische Definition gefunden."
                             else -> null
                         }

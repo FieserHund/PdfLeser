@@ -925,6 +925,7 @@ class ReaderActivity : AppCompatActivity(), ReaderPageView.Host, OriginalPageVie
 
     private fun setupLookupCard() {
         findViewById<View>(R.id.transClose).setOnClickListener { closeTranslation() }
+        findViewById<View>(R.id.transRetry).setOnClickListener { vm.retryLookup() }
         findViewById<View>(R.id.btnSpeak).setOnClickListener {
             val s = vm.lookup.value?.sel?.text ?: return@setOnClickListener
             vm.readAloud.speakWord(s)
@@ -974,6 +975,12 @@ class ReaderActivity : AppCompatActivity(), ReaderPageView.Host, OriginalPageVie
             st.transError != null -> st.transError
             else -> st.translation?.text.orEmpty()
         }
+        // Bei einem Fehler genügt ein Tipp auf die Meldung, um es noch einmal zu versuchen.
+        val failed = st.transError != null || st.defError != null
+        transResult.textSize = if (st.transError != null) 15f else 21f
+        transCard.findViewById<View>(R.id.transRetry).isVisible = failed && !st.transLoading && !st.defLoading
+        transResult.setOnClickListener(if (st.transError != null) View.OnClickListener { vm.retryLookup() } else null)
+        transResult.isClickable = st.transError != null
         val dict = st.translation?.dict.orEmpty().joinToString("\n") { "${it.first}: ${it.second}" }
         transDict.text = dict
         transDict.isVisible = dict.isNotEmpty()

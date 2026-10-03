@@ -107,8 +107,12 @@ erhalten. Meldet Android „App nicht installiert … Konflikt“, wurde mit ein
 
 ## Hinweise
 
-- Übersetzung und Wörterbuch brauchen Internet (Google Übersetzer, Free Dictionary API,
-  Wiktionary), aber **keine** Google-Übersetzer-App. Nur der Knopf
+- Übersetzung und Wörterbuch brauchen Internet, aber **keine** Google-Übersetzer-App.
+  Übersetzt wird über mehrere Dienste nacheinander (translate.googleapis.com, clients5.google.com,
+  MyMemory); Definitionen über Free Dictionary API und Wiktionary. Die kostenlosen Google-Endpunkte
+  sperren eine IP-Adresse zeitweise, wenn in kurzer Zeit sehr viele Wörter nachgeschlagen werden —
+  dann übernimmt der nächste Dienst. Jede Übersetzung wird dauerhaft auf dem Gerät gespeichert,
+  bereits nachgeschlagene Wörter funktionieren deshalb auch ohne Internet. Nur der Knopf
   „Google Übersetzer" nutzt die App, falls installiert (sonst öffnet er den Browser).
 - Blättern geht auch mit den Lautstärketasten (abschaltbar unter „Darstellung").
 - Vorlesen nutzt die Sprachausgabe des Handys. Fehlt eine Stimme, meldet die App das:
