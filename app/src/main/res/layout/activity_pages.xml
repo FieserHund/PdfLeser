@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="?attr/colorSurface"
+    android:orientation="vertical">
+
+    <com.google.android.material.appbar.MaterialToolbar
+        android:id="@+id/toolbar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        app:navigationContentDescription="Zurück"
+        app:navigationIcon="@drawable/ic_arrow_back"
+        app:subtitle="Antippen zum Korrigieren, lange drücken zum Auswählen"
+        app:title="Seiten" />
+
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1">
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/list"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:clipToPadding="false"
+            android:paddingStart="8dp"
+            android:paddingTop="4dp"
+            android:paddingEnd="8dp"
+            android:paddingBottom="24dp" />
+
+        <TextView
+            android:id="@+id/hint"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:gravity="center"
+            android:lineSpacingMultiplier="1.25"
+            android:padding="36dp"
+            android:text="Dieses Buch hat noch keine gescannten Seiten."
+            android:textColor="?attr/colorOnSurfaceVariant"
+            android:textSize="15sp"
+            android:visibility="gone" />
+    </FrameLayout>
+</LinearLayout>

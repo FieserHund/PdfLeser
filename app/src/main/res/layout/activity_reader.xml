@@ -276,6 +276,36 @@
                     android:text="Nacht" />
             </com.google.android.material.button.MaterialButtonToggleGroup>
 
+            <TextView style="@style/SettingsLabel" android:text="Abbildungen" />
+
+            <com.google.android.material.button.MaterialButtonToggleGroup
+                android:id="@+id/groupImages"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                app:selectionRequired="true"
+                app:singleSelection="true">
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/imgShow"
+                    style="@style/SegButton"
+                    android:text="Anzeigen" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/imgDim"
+                    style="@style/SegButton"
+                    android:text="Abdunkeln" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/imgHide"
+                    style="@style/SegButton"
+                    android:text="Ausblenden" />
+            </com.google.android.material.button.MaterialButtonToggleGroup>
+
+            <com.google.android.material.materialswitch.MaterialSwitch
+                android:id="@+id/swImagesDark"
+                style="@style/SettingsSwitch"
+                android:text="Nur bei dunklen Farben (Dunkel, Nacht)" />
+
             <TextView style="@style/SettingsLabel" android:text="Schriftart" />
 
             <com.google.android.material.button.MaterialButtonToggleGroup
@@ -396,6 +426,12 @@
                     android:layout_height="wrap_content"
                     android:text="System" />
             </LinearLayout>
+
+            <com.google.android.material.materialswitch.MaterialSwitch
+                android:id="@+id/swShowNotes"
+                style="@style/SettingsSwitch"
+                android:layout_marginTop="10dp"
+                android:text="Fußnoten im Text mitlaufen lassen" />
 
             <com.google.android.material.materialswitch.MaterialSwitch
                 android:id="@+id/swAutoVocab"

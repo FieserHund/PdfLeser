@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:paddingStart="22dp"
+    android:paddingTop="18dp"
+    android:paddingEnd="12dp"
+    android:paddingBottom="8dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:baselineAligned="true"
+        android:orientation="horizontal">
+
+        <TextView
+            android:id="@+id/noteMarker"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textColor="?attr/colorPrimary"
+            android:textSize="16sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/notePage"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="10dp"
+            android:layout_weight="1"
+            android:textColor="?attr/colorOnSurfaceVariant"
+            android:textSize="13sp" />
+    </LinearLayout>
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:maxHeight="360dp"
+        android:paddingEnd="10dp">
+
+        <TextView
+            android:id="@+id/noteText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:lineSpacingMultiplier="1.25"
+            android:textColor="?attr/colorOnSurface"
+            android:textIsSelectable="true"
+            android:textSize="16sp" />
+    </ScrollView>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="end"
+        android:orientation="horizontal">
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/noteCopy"
+            style="@style/Widget.Material3.Button.TextButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Kopieren" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/noteTranslate"
+            style="@style/Widget.Material3.Button.TextButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Übersetzen" />
+    </LinearLayout>
+</LinearLayout>

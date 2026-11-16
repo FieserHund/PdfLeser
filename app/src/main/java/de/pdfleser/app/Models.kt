@@ -5,6 +5,27 @@ sealed class Block {
     abstract val pdfPage: Int
 }
 
+/**
+ * Ein besonders gesetzter Zeichenbereich im Absatz.
+ * [kind]: 0 = hochgestellter Quellenverweis (antippbar), 1 = nur hochgestellt (z. B. Ca²⁺, ¹³C, cm³),
+ * 2 = tiefgestellt (z. B. H₂O), 3 = Quellenverweis im Fließtext wie „[12]“ (antippbar, nicht hochgestellt).
+ */
+data class Ref(val start: Int, val end: Int, val marker: String, val kind: Int = KIND_CITE) {
+    val cite: Boolean get() = kind == KIND_CITE || kind == KIND_INLINE
+    val sup: Boolean get() = kind == KIND_CITE || kind == KIND_SUP
+    val sub: Boolean get() = kind == KIND_SUB
+
+    companion object {
+        const val KIND_CITE = 0
+        const val KIND_SUP = 1
+        const val KIND_SUB = 2
+        const val KIND_INLINE = 3
+    }
+}
+
+/** Eine Fußnote vom Seitenende (Quelle, Zitat, Anmerkung). */
+data class Footnote(val pdfPage: Int, val marker: String, val text: String)
+
 data class TextBlock(
     val text: String,
     val heading: Boolean,
@@ -14,7 +35,9 @@ data class TextBlock(
     /** Fußnote/Bildunterschrift (kleinere Schrift am Seitenende) */
     val note: Boolean = false,
     /** letzte Zeile reicht bis zum rechten Rand → Absatz läuft vermutlich auf der nächsten Seite weiter */
-    val openEnd: Boolean = false
+    val openEnd: Boolean = false,
+    /** hochgestellte Quellenverweise in diesem Absatz */
+    val refs: List<Ref> = emptyList()
 ) : Block()
 
 /** Abbildung als Ausschnitt einer PDF-Seite (relative Koordinaten 0..1). */

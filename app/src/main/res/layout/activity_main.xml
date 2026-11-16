@@ -40,7 +40,7 @@
                 android:gravity="center"
                 android:lineSpacingMultiplier="1.25"
                 android:padding="36dp"
-                android:text="Noch keine Bücher.\n\nTippe auf „PDF öffnen“ – oder öffne bzw. teile ein PDF aus einer anderen App mit dieser App."
+                android:text="Noch keine Bücher.\n\nTippe auf „Hinzufügen“: ein PDF öffnen oder Buchseiten mit der Kamera scannen.\n\nPDFs kannst du auch aus anderen Apps hierher teilen."
                 android:textColor="?attr/colorOnSurfaceVariant"
                 android:textSize="15sp"
                 android:visibility="gone" />
@@ -53,6 +53,6 @@
         android:layout_height="wrap_content"
         android:layout_gravity="bottom|end"
         android:layout_margin="20dp"
-        android:text="PDF öffnen"
+        android:text="Hinzufügen"
         app:icon="@drawable/ic_add" />
 </FrameLayout>

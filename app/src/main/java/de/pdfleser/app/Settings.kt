@@ -22,12 +22,22 @@ data class ReaderSettings(
     val keepScreenOn: Boolean = true,
     val brightness: Float = -1f, // -1 = Systemhelligkeit
     val autoVocab: Boolean = true,
+    val showNotes: Boolean = false,
     val showDefinition: Boolean = true,
-    val ttsRate: Float = 1.0f
+    val ttsRate: Float = 1.0f,
+    val images: Int = IMAGES_SHOW,      // 0 anzeigen, 1 abdunkeln, 2 ausblenden
+    val imagesOnlyDark: Boolean = true  // Einstellung nur bei Dunkel/Nacht anwenden
 ) {
     val isDark: Boolean get() = theme >= 2
 
+    /** Wie Abbildungen gerade tatsächlich erscheinen (berücksichtigt „nur bei dunklen Farben“). */
+    fun imageMode(): Int = if (imagesOnlyDark && !isDark) IMAGES_SHOW else images
+
     companion object {
+        const val IMAGES_SHOW = 0
+        const val IMAGES_DIM = 1
+        const val IMAGES_HIDE = 2
+
         val SPACINGS = floatArrayOf(1.2f, 1.45f, 1.75f)
         val MARGINS_DP = intArrayOf(14, 26, 42)
 
@@ -46,8 +56,11 @@ data class ReaderSettings(
                 keepScreenOn = p.getBoolean("keepOn", d.keepScreenOn),
                 brightness = p.getFloat("brightness", d.brightness),
                 autoVocab = p.getBoolean("autoVocab", d.autoVocab),
+                showNotes = p.getBoolean("showNotes", d.showNotes),
                 showDefinition = p.getBoolean("showDef", d.showDefinition),
-                ttsRate = p.getFloat("ttsRate", d.ttsRate)
+                ttsRate = p.getFloat("ttsRate", d.ttsRate),
+                images = p.getInt("images", d.images),
+                imagesOnlyDark = p.getBoolean("imagesOnlyDark", d.imagesOnlyDark)
             )
         }
 
@@ -64,8 +77,11 @@ data class ReaderSettings(
                 .putBoolean("keepOn", s.keepScreenOn)
                 .putFloat("brightness", s.brightness)
                 .putBoolean("autoVocab", s.autoVocab)
+                .putBoolean("showNotes", s.showNotes)
                 .putBoolean("showDef", s.showDefinition)
                 .putFloat("ttsRate", s.ttsRate)
+                .putInt("images", s.images)
+                .putBoolean("imagesOnlyDark", s.imagesOnlyDark)
                 .apply()
         }
     }
@@ -77,6 +93,7 @@ class ThemeColors(
     val footer: Int,
     val selection: Int,
     val placeholder: Int,
+    val ref: Int,
     val highlight: Int,
     val speaking: Int,
     val ribbon: Int,
@@ -89,22 +106,22 @@ class ThemeColors(
         fun of(theme: Int): ThemeColors = when (theme) {
             1 -> ThemeColors(
                 0xFFF4ECD8.toInt(), 0xFF3B2F20.toInt(), 0xFF8A7A62.toInt(),
-                0x55C28A2C, 0x22000000, 0x66F0B429, 0x33307ACF, 0xFFC0392B.toInt(),
+                0x55C28A2C, 0x22000000, 0xFF8A5A12.toInt(), 0x66F0B429, 0x33307ACF, 0xFFC0392B.toInt(),
                 null, scale(0.96f, 0.93f, 0.85f)
             )
             2 -> ThemeColors(
                 0xFF1E1E1E.toInt(), 0xFFD8D8D8.toInt(), 0xFF8C8C8C.toInt(),
-                0x664F8FFF, 0x22FFFFFF, 0x55C99A2E, 0x444F8FFF, 0xFFC0473A.toInt(),
+                0x664F8FFF, 0x22FFFFFF, 0xFF93BBF0.toInt(), 0x55C99A2E, 0x444F8FFF, 0xFFC0473A.toInt(),
                 scale(0.85f, 0.85f, 0.85f), invert(214f, 30f)
             )
             3 -> ThemeColors(
                 0xFF000000.toInt(), 0xFFF0F0F0.toInt(), 0xFF8A8A8A.toInt(),
-                0x664F8FFF, 0x22FFFFFF, 0x55A87F1F, 0x444F8FFF, 0xFFA83A2E.toInt(),
+                0x664F8FFF, 0x22FFFFFF, 0xFF9CC2F5.toInt(), 0x55A87F1F, 0x444F8FFF, 0xFFA83A2E.toInt(),
                 scale(0.8f, 0.8f, 0.8f), invert(240f, 0f)
             )
             else -> ThemeColors(
                 0xFFFFFFFF.toInt(), 0xFF1A1A1A.toInt(), 0xFF808080.toInt(),
-                0x553F7FE0, 0x11000000, 0x66FFD54F, 0x3342A5F5, 0xFFD9453B.toInt(),
+                0x553F7FE0, 0x11000000, 0xFF1C5FA8.toInt(), 0x66FFD54F, 0x3342A5F5, 0xFFD9453B.toInt(),
                 null, null
             )
         }

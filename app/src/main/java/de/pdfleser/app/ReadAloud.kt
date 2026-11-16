@@ -29,6 +29,7 @@ class ReadAloud(context: Context) {
     private class Seg(val id: String, val block: Int, val start: Int, val end: Int, val text: String)
 
     private val ctx = context.applicationContext
+    private val SPACES = Regex(" {2,}")
     private val main = Handler(Looper.getMainLooper())
     val state = MutableStateFlow(State())
     val errors = MutableSharedFlow<String>(extraBufferCapacity = 4)
@@ -199,6 +200,20 @@ class ReadAloud(context: Context) {
         }
     }
 
+    private fun spokenText(block: TextBlock, s: Int, e: Int): String {
+        val cites = block.refs.filter { it.cite && it.end > s && it.start < e }.sortedBy { it.start }
+        if (cites.isEmpty()) return block.text.substring(s, e).trim()
+        val sb = StringBuilder()
+        var pos = s
+        for (r in cites) {
+            val a = r.start.coerceIn(pos, e)
+            sb.append(block.text, pos, a)
+            pos = maxOf(pos, r.end.coerceAtMost(e))
+        }
+        if (pos < e) sb.append(block.text, pos, e)
+        return SPACES.replace(sb, " ").trim()
+    }
+
     private fun nextSegment(bl: List<Block>): Seg? {
         var b = cursor.block
         var c = cursor.char
@@ -222,7 +237,13 @@ class ReadAloud(context: Context) {
                     continue
                 }
                 val s = c + (raw.length - raw.trimStart().length)
-                return Seg("$gen:$b:$s", b, s, s + trimmed.length, trimmed)
+                // Quellennummern („…gezeigt.¹²“, „[12]“) werden nicht mitgesprochen.
+                val spoken = spokenText(block, s, s + trimmed.length)
+                if (spoken.none { ch -> ch.isLetterOrDigit() }) {
+                    c = end
+                    continue
+                }
+                return Seg("$gen:$b:$s", b, s, s + trimmed.length, spoken)
             }
             b++
             c = 0

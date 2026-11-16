@@ -27,6 +27,39 @@ umgewandelt, sodass Schriftgröße, Schriftart und Farben frei einstellbar sind 
   Satz hervor und blättert automatisch weiter. Pause, Tempo (0,8×–1,8×) und Stopp in der kleinen
   Leiste unten. Während des Vorlesens regeln die Lautstärketasten die Lautstärke.
 - **Bilder & Grafiken** aus dem PDF an der richtigen Stelle im Text; Fußnoten werden erkannt.
+- **Bücher scannen:** In der Bibliothek auf „Hinzufügen“ → *Buchseiten fotografieren*. Der
+  Dokumentenscanner erkennt die Seitenränder und begradigt automatisch; danach wird der Text
+  **auf dem Gerät** erkannt (ML Kit, kein Internet, keine Cloud). Das Ergebnis ist ein normales
+  Buch mit allen Funktionen. Alternativ *Fotos aus der Galerie* für bereits aufgenommene Bilder.
+  Ein Scan lässt sich jederzeit erweitern: Buch lange drücken → *Seiten anhängen*.
+- **Eine Seite aus mehreren Fotos:** Im Scan-Dialog lässt sich einstellen, ob 1, 2 oder 3 Fotos
+  eine Buchseite ergeben. Die Teile werden untereinander gesetzt und gemeinsam erkannt — praktisch,
+  wenn der Text zu klein ist und du obere und untere Hälfte getrennt fotografierst.
+- **Seitenverwaltung** (Buch lange drücken → *Seiten verwalten*): Übersicht aller Seiten mit
+  Miniaturbild und erkannter Seitenzahl.
+  - Seiten lange drücken zum Auswählen, dann **zu einer Seite zusammenfügen** oder entfernen.
+  - Seite antippen, um die **Seitenzahl zu korrigieren** (eine Korrektur ist mit ✎ markiert).
+  - **Seiten neu erkennen** liest den Text aus den gespeicherten Fotos noch einmal — sinnvoll
+    nach einer neuen Version der App oder nach einer Änderung der Absatz-Einstellung.
+  - **Nach Seitenzahl sortieren** bringt die Seiten in die richtige Reihenfolge, auch wenn du
+    sie durcheinander fotografiert hast. Seiten ohne erkannte Zahl bleiben hinter ihrem
+    bisherigen Vorgänger. Leseposition, Lesezeichen und Markierungen werden danach neu zugeordnet.
+- **Abbildungen abends ausblenden:** „Aa“ → *Abbildungen*: Anzeigen, Abdunkeln oder Ausblenden.
+  Ausgeblendete Bilder werden zu einem schmalen, dunklen Platzhalter – antippen zeigt das Bild
+  trotzdem groß an. Mit *Nur bei dunklen Farben* gilt das automatisch nur in Dunkel/Nacht.
+- **Quellen und Fußnoten:** Der kleiner gesetzte Teil am Seitenende wird als Quellenangabe erkannt
+  und aus dem Lesefluss genommen. Hochgestellte Verweise im Text sind unterstrichen und antippbar –
+  die passende Quelle erscheint dann als Karte von unten (mit Kopieren und Übersetzen).
+  Alle Quellen eines Buchs stehen außerdem im Listen-Symbol oben unter *Quellen*.
+  Wer sie lieber im Text mitlaufen lässt: „Aa“ → *Fußnoten im Text mitlaufen lassen*.
+  Das gilt für PDFs wie für Scans:
+  - Verweise werden **echt hochgestellt** und farbig gesetzt; auch Mehrfachzitate (¹˒², ³⁻⁵),
+    hochgestellte Klammern und Zitate im Fließtext wie „[12]“ sind antippbar.
+  - Fehlt die Fußnote auf der Seite, sucht die App im **Literaturverzeichnis** bzw. in den
+    **Anmerkungen** (References, Literatur, Notes, Anmerkungen …).
+  - Formeln bleiben Formeln: Ladungen (Ca²⁺), Isotope (¹³C), Potenzen (10⁻³), Einheiten (cm³) und
+    tiefgestellte Indizes (H₂O) werden richtig gesetzt, aber nicht als Zitat behandelt.
+  - Beim Vorlesen werden Quellennummern übersprungen.
 - **Originalansicht** (Knopf „Original“), bei Scans automatisch.
 - **Absätze pro Buch:** unter „Aa“ → *Absätze (dieses Buch)*: „Automatisch“ oder „Aus (Fließtext)“
   für PDFs, deren Absätze sich nicht sauber erkennen lassen. Das Buch wird dann neu aufbereitet,
@@ -123,6 +156,27 @@ erhalten. Meldet Android „App nicht installiert … Konflikt“, wurde mit ein
   im Lesemodus Fehler machen – dann hilft die Originalansicht.
 - Passwortgeschützte PDFs werden nicht unterstützt.
 
+## Hinweise zum Scannen
+
+- Die Texterkennung läuft vollständig offline auf dem Handy; nur Übersetzung und Wörterbuch
+  brauchen Internet.
+- Der Dokumentenscanner von Google wird beim ersten Mal über die Play-Dienste nachgeladen
+  (einmalig Internet nötig). Klappt das nicht, bietet die App die Galerie-Variante an.
+- Fotos werden auf 2200 Pixel lange Kante verkleinert gespeichert — gut lesbar und sparsam.
+- Gute Ergebnisse: Seite flach auflegen, gleichmäßiges Licht, kein harter Schatten in der Falz,
+  Buch möglichst parallel zur Kamera. Je gerader die Seite, desto sauberer die Absätze.
+- Kleingedrucktes am Seitenende verschwindet nur dann aus dem Lesefluss, wenn davor eine
+  Fußnotennummer steht. Tabellen oder Bildunterschriften in kleiner Schrift bleiben sichtbar.
+- Der Absatz-Modus („Aa“ → Absätze) wirkt bei gescannten Büchern erst nach „Seiten neu erkennen“.
+- Nach Updates mit verbesserter Texterkennung werden PDFs beim Öffnen einmal neu aufbereitet;
+  gescannte Bücher behalten ihren Text, bis du in der Seitenverwaltung „Seiten neu erkennen“ wählst.
+- Abbildungen auf gescannten Seiten werden erkannt und im Lesefluss an der richtigen Stelle
+  gezeigt. Klappt das bei einer Seite nicht, hilft der Knopf „Original“.
+- Die gedruckte Seitenzahl wird aus der Kopf- oder Fußzeile gelesen, arabisch (12) wie römisch (xiv).
+  Fehlt sie oder wird sie falsch gelesen, trägst du sie in der Seitenverwaltung von Hand ein.
+- Seitenfotos werden mit 2600 Pixel langer Kante gespeichert; die Texterkennung läuft vorher in
+  voller Auflösung, damit auch kleine Schrift sauber erkannt wird.
+
 ## Aufbau des Codes
 
 | Datei | Aufgabe |
@@ -134,4 +188,9 @@ erhalten. Meldet Android „App nicht installiert … Konflikt“, wurde mit ein
 | `Layouts.kt` | Seitenumbruch (StaticLayout, Hurenkinder/Schusterjungen-Regeln) |
 | `ReaderViewModel.kt` | Zustand, Hintergrund-Paginierung, Bild-Cache |
 | `PdfPages.kt` | Rendering über Androids PdfRenderer |
-| `Translator.kt` | Google-Übersetzung |
+| `Notes.kt` | Quellen auflösen: Fußnoten, Literaturverzeichnis, Endnoten |
+| `Translator.kt` | Übersetzung (mehrere Dienste, dauerhafter Speicher) |
+| `Ocr.kt` | Texterkennung gescannter Seiten (ML Kit) |
+| `ScanImport.kt` | Scan-Ablauf: Fotos speichern, erkennen, als Buch ablegen |
+| `ScanEditor.kt` | Seiten zusammenfügen, sortieren, löschen, Seitenzahlen |
+| `PagesActivity.kt` | Seitenverwaltung gescannter Bücher |

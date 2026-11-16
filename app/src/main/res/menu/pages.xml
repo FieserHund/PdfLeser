@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+    <item
+        android:id="@+id/action_merge"
+        android:icon="@drawable/ic_merge"
+        android:title="Zu einer Seite zusammenfügen"
+        android:visible="false"
+        app:showAsAction="always" />
+    <item
+        android:id="@+id/action_delete"
+        android:icon="@drawable/ic_delete"
+        android:title="Entfernen"
+        android:visible="false"
+        app:showAsAction="always" />
+    <item
+        android:id="@+id/action_reocr"
+        android:title="Seiten neu erkennen"
+        app:showAsAction="never" />
+    <item
+        android:id="@+id/action_sort"
+        android:icon="@drawable/ic_sort"
+        android:title="Nach Seitenzahl sortieren"
+        app:showAsAction="always" />
+</menu>

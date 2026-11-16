@@ -2,6 +2,7 @@ package de.pdfleser.app
 
 import android.content.Intent
 import android.net.Uri
+import androidx.activity.result.IntentSenderRequest
 import android.os.Bundle
 import android.view.View
 import android.widget.FrameLayout
@@ -14,15 +15,24 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.isVisible
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.appbar.MaterialToolbar
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.google.android.material.button.MaterialButtonToggleGroup
 import com.google.android.material.progressindicator.LinearProgressIndicator
 import com.google.android.material.textfield.TextInputEditText
 import com.google.android.material.textfield.TextInputLayout
+import com.google.mlkit.vision.documentscanner.GmsDocumentScanning
+import com.google.mlkit.vision.documentscanner.GmsDocumentScannerOptions
+import com.google.mlkit.vision.documentscanner.GmsDocumentScanningResult
 import java.io.File
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -35,8 +45,24 @@ class MainActivity : AppCompatActivity() {
     private lateinit var empty: TextView
     private var pendingInstall: File? = null
 
+    private var appendToBook: String? = null
+    private var scanDialog: androidx.appcompat.app.AlertDialog? = null
+    private var scanBar: LinearProgressIndicator? = null
+
     private val openDoc = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
         if (uri != null) importAndOpen(uri)
+    }
+
+    /** Ergebnis des Dokumentenscanners (Kamera mit automatischem Zuschnitt). */
+    private val scanner = registerForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { res ->
+        val pages = GmsDocumentScanningResult.fromActivityResultIntent(res.data)?.pages.orEmpty()
+        val uris = pages.mapNotNull { it.imageUri }
+        if (uris.isNotEmpty()) askScanTitle(uris)
+    }
+
+    /** Bereits vorhandene Fotos aus der Galerie. */
+    private val pickImages = registerForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
+        if (uris.isNotEmpty()) askScanTitle(uris)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -64,13 +90,20 @@ class MainActivity : AppCompatActivity() {
 
         val list = findViewById<RecyclerView>(R.id.list)
         empty = findViewById(R.id.empty)
-        adapter = BookAdapter(this, { openBook(it.id) }, { confirmDelete(it) })
+        adapter = BookAdapter(this, { openBook(it.id) }, { showBookMenu(it) })
         val dm = resources.displayMetrics
         val columns = max(2, (dm.widthPixels / dm.density / 130f).toInt())
         list.layoutManager = GridLayoutManager(this, columns)
         list.adapter = adapter
 
-        findViewById<View>(R.id.fab).setOnClickListener { openDoc.launch(arrayOf("application/pdf")) }
+        findViewById<View>(R.id.fab).setOnClickListener { showAddMenu() }
+
+        // Nur beobachten, solange der Bildschirm sichtbar ist – sonst erscheinen Dialoge im Hintergrund.
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                ScanImport.state.collect { showScanProgress(it) }
+            }
+        }
 
         if (savedInstanceState == null) {
             handleIntent(intent)
@@ -260,10 +293,180 @@ class MainActivity : AppCompatActivity() {
         startActivity(Intent(this, ReaderActivity::class.java).putExtra(ReaderActivity.EXTRA_ID, id))
     }
 
+    /* ---------------------------- Scannen ---------------------------- */
+
+    private fun showAddMenu() {
+        val items = arrayOf("PDF öffnen", "Buchseiten fotografieren", "Fotos aus der Galerie")
+        MaterialAlertDialogBuilder(this)
+            .setTitle("Hinzufügen")
+            .setItems(items) { _, which ->
+                appendToBook = null
+                when (which) {
+                    0 -> openDoc.launch(arrayOf("application/pdf"))
+                    1 -> startScanner()
+                    else -> pickImages.launch(arrayOf("image/*"))
+                }
+            }
+            .show()
+    }
+
+    private fun startScanner() {
+        if (ScanImport.running) {
+            toast("Es wird noch ein Scan verarbeitet.")
+            return
+        }
+        val options = GmsDocumentScannerOptions.Builder()
+            .setGalleryImportAllowed(true)
+            .setPageLimit(100)
+            .setResultFormats(GmsDocumentScannerOptions.RESULT_FORMAT_JPEG)
+            .setScannerMode(GmsDocumentScannerOptions.SCANNER_MODE_FULL)
+            .build()
+        GmsDocumentScanning.getClient(options)
+            .getStartScanIntent(this)
+            .addOnSuccessListener { sender ->
+                try {
+                    scanner.launch(IntentSenderRequest.Builder(sender).build())
+                } catch (e: Exception) {
+                    toast("Der Scanner konnte nicht geöffnet werden.")
+                }
+            }
+            .addOnFailureListener {
+                // Scanner-Modul fehlt (kein Play-Dienst/keine Verbindung) – dann eben über die Galerie.
+                MaterialAlertDialogBuilder(this)
+                    .setTitle("Scanner nicht verfügbar")
+                    .setMessage(
+                        "Der Dokumentenscanner von Google konnte nicht geladen werden " +
+                            "(" + (it.message ?: "unbekannter Grund") + ").\n\n" +
+                            "Du kannst die Seiten mit der Kamera-App fotografieren und hier als Fotos auswählen."
+                    )
+                    .setNegativeButton("Abbrechen", null)
+                    .setPositiveButton("Fotos auswählen") { _, _ -> pickImages.launch(arrayOf("image/*")) }
+                    .show()
+            }
+    }
+
+    private fun askScanTitle(uris: List<Uri>) {
+        val append = appendToBook
+        appendToBook = null
+        val v = layoutInflater.inflate(R.layout.dialog_scan, null)
+        val titleBox = v.findViewById<TextInputLayout>(R.id.titleBox)
+        val titleInput = v.findViewById<TextInputEditText>(R.id.scanTitle)
+        val group = v.findViewById<MaterialButtonToggleGroup>(R.id.groupParts)
+        val partsHint = v.findViewById<TextView>(R.id.partsHint)
+        val ids = intArrayOf(R.id.parts1, R.id.parts2, R.id.parts3)
+
+        titleBox.isVisible = append == null
+        titleInput.setText("Scan " + SimpleDateFormat("dd.MM.yyyy", Locale.GERMANY).format(Date()))
+
+        fun describe(parts: Int) {
+            val pages = uris.size / parts
+            partsHint.text = if (parts == 1) {
+                "${uris.size} Fotos ergeben ${uris.size} Seiten."
+            } else {
+                "Je $parts Fotos untereinander ergeben eine Seite – gedacht, wenn du eine Seite " +
+                    "in Teilen fotografierst.\n${uris.size} Fotos ergeben $pages Seiten" +
+                    (if (uris.size % parts != 0) " (die letzten ${uris.size % parts} bilden eine kürzere Seite)." else ".")
+            }
+        }
+        group.check(ids[0])
+        describe(1)
+        group.addOnButtonCheckedListener { _, id, checked ->
+            if (checked) describe(ids.indexOf(id).coerceAtLeast(0) + 1)
+        }
+
+        MaterialAlertDialogBuilder(this)
+            .setTitle(if (append == null) "${uris.size} Fotos erkennen" else "${uris.size} Fotos anhängen")
+            .setMessage("Der Text wird auf dem Gerät erkannt – ohne Internet.")
+            .setView(v)
+            .setNegativeButton("Abbrechen", null)
+            .setPositiveButton("Starten") { _, _ ->
+                val parts = ids.indexOf(group.checkedButtonId).coerceAtLeast(0) + 1
+                ScanImport.start(this, uris, titleInput.text?.toString().orEmpty().trim(), append, parts)
+            }
+            .show()
+    }
+
+    private fun showScanProgress(st: ScanState?) {
+        if (st == null) {
+            scanDialog?.dismiss()
+            scanDialog = null
+            scanBar = null
+            return
+        }
+        if (st.finished) {
+            scanDialog?.dismiss()
+            scanDialog = null
+            scanBar = null
+            refresh()
+            val err = st.error
+            if (err != null) {
+                toast("Scan fehlgeschlagen: $err")
+            } else {
+                toast("${st.total} Seiten erkannt.")
+                openBook(st.bookId)
+            }
+            ScanImport.clear()
+            return
+        }
+        var bar = scanBar
+        if (scanDialog == null) {
+            bar = LinearProgressIndicator(this).apply {
+                isIndeterminate = false
+                max = st.total.coerceAtLeast(1)
+            }
+            scanBar = bar
+            val box = FrameLayout(this).apply {
+                setPadding(dp(24), dp(20), dp(24), dp(4))
+                addView(bar)
+            }
+            scanDialog = MaterialAlertDialogBuilder(this)
+                .setTitle("Seiten werden erkannt …")
+                .setMessage("Das läuft auf dem Gerät und kann einen Moment dauern.")
+                .setView(box)
+                .setCancelable(false)
+                .setNegativeButton("Abbrechen") { _, _ -> ScanImport.cancel() }
+                .show()
+        }
+        bar?.setProgressCompat(st.done, true)
+        scanDialog?.setTitle("Seite ${st.done + 1} von ${st.total} …")
+    }
+
+    private fun showBookMenu(b: BookEntry) {
+        val items = if (b.scan) arrayOf(
+            "Seiten anhängen (Kamera)", "Seiten anhängen (Galerie)", "Seiten verwalten", "Entfernen"
+        ) else arrayOf("Entfernen")
+        MaterialAlertDialogBuilder(this)
+            .setTitle(b.title)
+            .setItems(items) { _, which ->
+                if (!b.scan) {
+                    confirmDelete(b)
+                    return@setItems
+                }
+                when (which) {
+                    0 -> {
+                        appendToBook = b.id
+                        startScanner()
+                    }
+                    1 -> {
+                        appendToBook = b.id
+                        pickImages.launch(arrayOf("image/*"))
+                    }
+                    2 -> startActivity(
+                        Intent(this, PagesActivity::class.java).putExtra(PagesActivity.EXTRA_ID, b.id)
+                    )
+                    else -> confirmDelete(b)
+                }
+            }
+            .show()
+    }
+
     private fun confirmDelete(b: BookEntry) {
         MaterialAlertDialogBuilder(this)
             .setTitle("Aus der Bibliothek entfernen?")
-            .setMessage("„${b.title}“ wird aus der App gelöscht. Deine Originaldatei bleibt erhalten.")
+            .setMessage(
+                if (b.scan) "„${b.title}“ wird mit allen gescannten Seiten gelöscht."
+                else "„${b.title}“ wird aus der App gelöscht. Deine Originaldatei bleibt erhalten."
+            )
             .setNegativeButton("Abbrechen", null)
             .setPositiveButton("Entfernen") { _, _ ->
                 lifecycleScope.launch {

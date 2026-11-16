@@ -45,7 +45,7 @@ class ReaderViewModel(app: Application) : AndroidViewModel(app) {
         private set
     var content: BookContent? = null
         private set
-    var pdf: PdfPages? = null
+    var pdf: PageSource? = null
         private set
 
     var settings: ReaderSettings = ReaderSettings.load(app)
@@ -110,9 +110,7 @@ class ReaderViewModel(app: Application) : AndroidViewModel(app) {
         }
         viewModelScope.launch {
             val c = withContext(Dispatchers.IO) { ContentManager.get(app, id) }
-            val p = withContext(Dispatchers.IO) {
-                try { PdfPages(Library.pdfFile(app, id)) } catch (e: Exception) { null }
-            }
+            val p = withContext(Dispatchers.IO) { openPages(app, id) }
             annotations = withContext(Dispatchers.IO) { AnnotationStore.load(app, id) }
             if (c.formatReset) {
                 c.formatReset = false
@@ -405,7 +403,7 @@ class ReaderViewModel(app: Application) : AndroidViewModel(app) {
                     )
                 }
             }
-            if (settings.autoVocab && words <= 4 && t.isSuccess) saveVocab(countUp = true)
+            if (settings.autoVocab && words <= 4 && t.isSuccess && sel.block >= 0) saveVocab(countUp = true)
         }
     }
 
@@ -608,16 +606,26 @@ class ReaderViewModel(app: Application) : AndroidViewModel(app) {
         get() = bookId?.let { Prefs.sp(getApplication<Application>()).getInt("para_$it", 0) } ?: 0
 
     /** Absatz-Modus ändern: Buch wird neu aufbereitet, die Leseposition bleibt erhalten. */
-    fun setParagraphMode(m: Int, done: () -> Unit) {
+    /**
+     * @param done wird mit true aufgerufen, wenn das Buch neu aufbereitet wurde; mit false,
+     * wenn es sich um einen Scan handelt – dort muss der Text über die Seitenverwaltung
+     * neu erkannt werden, weil es kein PDF gibt, aus dem man ihn wiederherstellen könnte.
+     */
+    fun setParagraphMode(m: Int, done: (Boolean) -> Unit) {
         val id = bookId ?: return
         val app = getApplication<Application>()
+        val scan = book?.scan == true
         readAloud.stop()
         val page = currentPdfPage()
         savePosition()
         Prefs.sp(app).edit().putInt("para_$id", m).putInt("resume_$id", page).apply()
+        if (scan) {
+            done(false)
+            return
+        }
         viewModelScope.launch {
             withContext(Dispatchers.IO) { ContentManager.reextract(app, id) }
-            done()
+            done(true)
         }
     }
 

@@ -5,8 +5,11 @@ import android.graphics.Typeface
 import android.graphics.text.LineBreaker
 import android.os.Build
 import android.text.Layout
+import android.text.SpannableString
+import android.text.Spanned
 import android.text.StaticLayout
 import android.text.TextPaint
+import android.text.style.MetricAffectingSpan
 import android.util.LruCache
 import java.util.Locale
 import kotlin.math.max
@@ -21,8 +24,48 @@ data class LayoutSpec(
     val lineMult: Float,
     val font: Int,
     val justify: Boolean,
-    val lang: String
+    val lang: String,
+    /** true = Fußnoten laufen im Text mit, false = sie erscheinen nur beim Antippen des Verweises */
+    val showNotes: Boolean = false,
+    /** true = Abbildungen nur als schmaler Platzhalter (z. B. abends) */
+    val hideImages: Boolean = false
 )
+
+/** Farbe der antippbaren Verweise; wird beim Zeichnen gelesen, damit ein Themenwechsel sofort wirkt. */
+class RefStyle {
+    @Volatile var color: Int = 0
+}
+
+/**
+ * Setzt Verweise und Formelzeichen wie im Original: hochgestellt (Fußnotennummer, Ladung, Isotop)
+ * oder tiefgestellt (H₂O). Antippbare Quellenverweise erscheinen zusätzlich in der Akzentfarbe.
+ * Die Verschiebung ist so gewählt, dass der Zeilenabstand praktisch unverändert bleibt.
+ */
+class RefSpan(private val kind: Int, private val style: RefStyle?) : MetricAffectingSpan() {
+    override fun updateMeasureState(tp: TextPaint) {
+        shape(tp)
+    }
+
+    override fun updateDrawState(tp: TextPaint) {
+        shape(tp)
+        val c = style?.color ?: 0
+        if (c != 0) tp.color = c
+    }
+
+    private fun shape(tp: TextPaint) {
+        val size = tp.textSize
+        when (kind) {
+            Ref.KIND_CITE, Ref.KIND_SUP -> {
+                tp.textSize = size * 0.7f
+                tp.baselineShift -= (size * 0.3f).toInt()
+            }
+            Ref.KIND_SUB -> {
+                tp.textSize = size * 0.7f
+                tp.baselineShift += (size * 0.1f).toInt()
+            }
+        }
+    }
+}
 
 fun typefaceFor(font: Int, bold: Boolean): Typeface {
     val base = when (font) {
@@ -53,6 +96,12 @@ class LayoutFactory(val spec: LayoutSpec) {
     }
     val lineHeight: Float = (bodyPaint.fontMetrics.descent - bodyPaint.fontMetrics.ascent) * spec.lineMult
 
+    /** Gemeinsame Farbquelle aller Verweise dieser Darstellung. */
+    val refStyle = RefStyle()
+
+    /** Höhe des schmalen Platzhalters für ausgeblendete Abbildungen. */
+    val placeholderHeight: Float = lineHeight * 1.4f
+
     private val paraGap = spec.textSizePx * 0.55f
     private val headGapBefore = spec.textSizePx * 1.4f
     private val headGapAfter = spec.textSizePx * 0.45f
@@ -65,7 +114,8 @@ class LayoutFactory(val spec: LayoutSpec) {
             else -> bodyPaint
         }
         val justify = spec.justify && !b.heading
-        return StaticLayout.Builder.obtain(b.text, 0, b.text.length, paint, max(1, spec.width))
+        val text = styled(b)
+        return StaticLayout.Builder.obtain(text, 0, text.length, paint, max(1, spec.width))
             .setAlignment(Layout.Alignment.ALIGN_NORMAL)
             .setLineSpacing(0f, if (b.heading) 1.15f else spec.lineMult)
             .setIncludePad(false)
@@ -81,6 +131,17 @@ class LayoutFactory(val spec: LayoutSpec) {
         private val HYPHENATION =
             if (Build.VERSION.SDK_INT >= 33) Layout.HYPHENATION_FREQUENCY_NORMAL_FAST
             else Layout.HYPHENATION_FREQUENCY_NORMAL
+    }
+
+    /** Text mit hoch-/tiefgestellten Stellen; ohne solche bleibt es ein einfacher String. */
+    private fun styled(b: TextBlock): CharSequence {
+        if (b.refs.isEmpty()) return b.text
+        val s = SpannableString(b.text)
+        for (r in b.refs) {
+            if (r.start < 0 || r.end > b.text.length || r.end <= r.start) continue
+            s.setSpan(RefSpan(r.kind, if (r.cite) refStyle else null), r.start, r.end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+        }
+        return s
     }
 
     fun gapBefore(blocks: List<Block>, i: Int): Float {
@@ -118,6 +179,8 @@ class Paginator(private val f: LayoutFactory) {
             when (val b = blocks[i]) {
                 is TextBlock -> {
                     if (b.text.isEmpty()) continue
+                    // Fußnoten stehen am Seitenende des Originals – im Lesefluss stören sie.
+                    if (b.note && !f.spec.showNotes) continue
                     val layout = f.build(b)
                     val n = layout.lineCount
                     var line = if (i == from.block) layout.getLineForOffset(from.char.coerceIn(0, b.text.length)) else 0
@@ -157,6 +220,19 @@ class Paginator(private val f: LayoutFactory) {
                     }
                 }
                 is ImageBlock -> {
+                    if (f.spec.hideImages) {
+                        // Ausgeblendet: nur ein schmaler Platzhalter, das Bild bleibt erhalten.
+                        val ph = f.placeholderHeight
+                        var gap = if (frags.isEmpty()) 0f else f.gapBefore(blocks, i)
+                        if (frags.isNotEmpty() && y + gap + ph > pageH) {
+                            flush()
+                            gap = 0f
+                        }
+                        if (frags.isEmpty()) start = Pos(i, 0)
+                        frags.add(ImageFrag(i, y + gap, 0f, pageW, ph))
+                        y += gap + ph
+                        continue
+                    }
                     var w = pageW
                     var h = w / b.aspect
                     if (h > pageH) {
@@ -197,10 +273,11 @@ class UiLayouts(val spec: LayoutSpec) {
         return l
     }
 
-    fun setColor(color: Int) {
+    fun setColor(color: Int, refColor: Int) {
         factory.bodyPaint.color = color
         factory.headPaint.color = color
         factory.notePaint.color = color
+        factory.refStyle.color = refColor
     }
 }
 

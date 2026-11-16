@@ -12,6 +12,7 @@ import org.json.JSONObject
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
+import java.util.Locale
 import java.util.UUID
 
 data class BookEntry(
@@ -20,7 +21,9 @@ data class BookEntry(
     val pageCount: Int,
     val size: Long,
     val added: Long,
-    val lastOpened: Long
+    val lastOpened: Long,
+    /** true = gescanntes Buch (Fotos + Texterkennung) statt PDF */
+    val scan: Boolean = false
 )
 
 /** Bücher werden beim Import in den App-Speicher kopiert – so bleiben sie auch nach Neustarts lesbar. */
@@ -29,6 +32,25 @@ object Library {
 
     fun booksDir(ctx: Context): File = File(ctx.filesDir, "books").apply { mkdirs() }
     fun pdfFile(ctx: Context, id: String) = File(booksDir(ctx), "$id.pdf")
+    fun scanDir(ctx: Context, id: String) = File(booksDir(ctx), "$id.scan")
+
+    /** Die gescannten Seitenbilder eines Buchs, in Seitenreihenfolge. */
+    fun scanPages(ctx: Context, id: String): List<File> {
+        val d = scanDir(ctx, id)
+        if (!d.isDirectory) return emptyList()
+        val all = d.listFiles() ?: return emptyList()
+        val jpg = all.filter { it.name.endsWith(".jpg") }
+        if (jpg.isNotEmpty()) return jpg.sortedBy { it.name }
+        // Wurde das Umsortieren unterbrochen, liegen die Seiten nur unter Zwischennamen vor.
+        val staged = all.filter { it.name.startsWith("stage_") && it.name.endsWith(".part") }.sortedBy { it.name }
+        if (staged.isEmpty()) return emptyList()
+        val out = ArrayList<File>(staged.size)
+        staged.forEachIndexed { i, f ->
+            val t = scanPageFile(ctx, id, i)
+            if (f.renameTo(t)) out.add(t)
+        }
+        return out
+    }
     fun coverFile(ctx: Context, id: String) = File(booksDir(ctx), "$id.cover.jpg")
     fun contentFile(ctx: Context, id: String) = File(booksDir(ctx), "$id.blocks.jsonl")
     fun metaFile(ctx: Context, id: String) = File(booksDir(ctx), "$id.meta.json")
@@ -55,6 +77,8 @@ object Library {
             list.removeAll { it.id == id }
             write(ctx, list)
         }
+        scanDir(ctx, id).listFiles()?.forEach { it.delete() }
+        scanDir(ctx, id).delete()
         booksDir(ctx).listFiles()?.filter { it.name.startsWith("$id.") }?.forEach { it.delete() }
         val sp = Prefs.sp(ctx)
         val e = sp.edit()
@@ -148,6 +172,46 @@ object Library {
         }
     }
 
+    /** Legt ein neues, leeres Scan-Buch an (Seiten kommen danach über addScanPage dazu). */
+    fun createScan(ctx: Context, title: String): BookEntry {
+        val id = UUID.randomUUID().toString().replace("-", "").take(16)
+        scanDir(ctx, id).mkdirs()
+        val entry = BookEntry(id, title.ifBlank { "Scan" }, 0, 0L, System.currentTimeMillis(), 0L, scan = true)
+        synchronized(lock) {
+            val list = read(ctx)
+            list.add(entry)
+            write(ctx, list)
+        }
+        return entry
+    }
+
+    /** Nächste freie Seitennummer eines Scans (zum Anhängen weiterer Seiten). */
+    fun nextScanIndex(ctx: Context, id: String): Int = scanPages(ctx, id).size
+
+    fun scanPageFile(ctx: Context, id: String, index: Int): File =
+        File(scanDir(ctx, id).apply { mkdirs() }, String.format(Locale.ROOT, "%04d.jpg", index))
+
+    /** Seitenzahl und Größe eines Scans aktualisieren und das Titelbild erzeugen. */
+    fun refreshScan(ctx: Context, id: String) {
+        val pages = scanPages(ctx, id)
+        if (pages.isNotEmpty() && !coverFile(ctx, id).exists()) {
+            try {
+                ImagePages(pages).renderFit(0, 360, 720)?.let { bmp ->
+                    FileOutputStream(coverFile(ctx, id)).use { bmp.compress(Bitmap.CompressFormat.JPEG, 85, it) }
+                    bmp.recycle()
+                }
+            } catch (e: Exception) { }
+        }
+        synchronized(lock) {
+            val list = read(ctx)
+            val i = list.indexOfFirst { it.id == id }
+            if (i >= 0) {
+                list[i] = list[i].copy(pageCount = pages.size, size = pages.sumOf { it.length() })
+                write(ctx, list)
+            }
+        }
+    }
+
     private fun read(ctx: Context): MutableList<BookEntry> {
         val f = indexFile(ctx)
         if (!f.exists()) return mutableListOf()
@@ -157,7 +221,7 @@ object Library {
                 val o = arr.getJSONObject(i)
                 BookEntry(
                     o.getString("id"), o.optString("title"), o.optInt("pages"),
-                    o.optLong("size"), o.optLong("added"), o.optLong("opened")
+                    o.optLong("size"), o.optLong("added"), o.optLong("opened"), o.optBoolean("scan")
                 )
             }
         } catch (e: Exception) {
@@ -170,7 +234,7 @@ object Library {
         for (b in list) {
             arr.put(
                 JSONObject().put("id", b.id).put("title", b.title).put("pages", b.pageCount)
-                    .put("size", b.size).put("added", b.added).put("opened", b.lastOpened)
+                    .put("size", b.size).put("added", b.added).put("opened", b.lastOpened).put("scan", b.scan)
             )
         }
         val f = indexFile(ctx)

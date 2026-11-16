@@ -6,6 +6,7 @@ import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.Rect
 import android.graphics.Typeface
+import android.app.Dialog
 import android.os.Build
 import android.os.Bundle
 import android.text.SpannableStringBuilder
@@ -17,6 +18,7 @@ import android.view.Gravity
 import android.view.KeyEvent
 import android.view.View
 import android.view.WindowManager
+import android.widget.ImageView
 import android.widget.FrameLayout
 import android.widget.ImageButton
 import android.widget.ProgressBar
@@ -92,12 +94,15 @@ class ReaderActivity : AppCompatActivity(), ReaderPageView.Host, OriginalPageVie
     private lateinit var groupSpacing: MaterialButtonToggleGroup
     private lateinit var groupMargin: MaterialButtonToggleGroup
     private lateinit var groupTheme: MaterialButtonToggleGroup
+    private lateinit var groupImages: MaterialButtonToggleGroup
+    private lateinit var swImagesDark: MaterialSwitch
     private lateinit var groupPara: MaterialButtonToggleGroup
     private lateinit var swJustify: MaterialSwitch
     private lateinit var swFullscreen: MaterialSwitch
     private lateinit var swVolume: MaterialSwitch
     private lateinit var swKeepOn: MaterialSwitch
     private lateinit var swAutoVocab: MaterialSwitch
+    private lateinit var swShowNotes: MaterialSwitch
     private lateinit var swDefinition: MaterialSwitch
     private lateinit var swAutoBrightness: MaterialSwitch
     private lateinit var seekBrightness: SeekBar
@@ -120,6 +125,7 @@ class ReaderActivity : AppCompatActivity(), ReaderPageView.Host, OriginalPageVie
     private val spacingIds by lazy { intArrayOf(R.id.spacing0, R.id.spacing1, R.id.spacing2) }
     private val marginIds by lazy { intArrayOf(R.id.margin0, R.id.margin1, R.id.margin2) }
     private val themeIds by lazy { intArrayOf(R.id.theme0, R.id.theme1, R.id.theme2, R.id.theme3) }
+    private val imageIds by lazy { intArrayOf(R.id.imgShow, R.id.imgDim, R.id.imgHide) }
 
     // --- Zustand ---
     private var modeApplied = -1
@@ -229,12 +235,15 @@ class ReaderActivity : AppCompatActivity(), ReaderPageView.Host, OriginalPageVie
         groupSpacing = findViewById(R.id.groupSpacing)
         groupMargin = findViewById(R.id.groupMargin)
         groupTheme = findViewById(R.id.groupTheme)
+        groupImages = findViewById(R.id.groupImages)
+        swImagesDark = findViewById(R.id.swImagesDark)
         groupPara = findViewById(R.id.groupPara)
         swJustify = findViewById(R.id.swJustify)
         swFullscreen = findViewById(R.id.swFullscreen)
         swVolume = findViewById(R.id.swVolume)
         swKeepOn = findViewById(R.id.swKeepOn)
         swAutoVocab = findViewById(R.id.swAutoVocab)
+        swShowNotes = findViewById(R.id.swShowNotes)
         swDefinition = findViewById(R.id.swDefinition)
         swAutoBrightness = findViewById(R.id.swAutoBrightness)
         seekBrightness = findViewById(R.id.seekBrightness)
@@ -308,7 +317,7 @@ class ReaderActivity : AppCompatActivity(), ReaderPageView.Host, OriginalPageVie
         val spec = ps.spec
         var specChanged = false
         if (spec != null && ui?.spec != spec) {
-            ui = UiLayouts(spec).also { it.setColor(colors.fg) }
+            ui = UiLayouts(spec).also { it.setColor(colors.fg, colors.ref) }
             specChanged = true
             if (modeApplied == 0) pendingJump = true
         }
@@ -502,7 +511,9 @@ class ReaderActivity : AppCompatActivity(), ReaderPageView.Host, OriginalPageVie
             lineMult = ReaderSettings.SPACINGS[s.lineSpacing.coerceIn(0, 2)],
             font = s.font,
             justify = s.justify,
-            lang = ""
+            lang = "",
+            showNotes = s.showNotes,
+            hideImages = s.imageMode() == ReaderSettings.IMAGES_HIDE
         )
         vm.setSpec(spec)
     }
@@ -522,7 +533,7 @@ class ReaderActivity : AppCompatActivity(), ReaderPageView.Host, OriginalPageVie
 
     private fun applyTheme() {
         colors = ThemeColors.of(vm.settings.theme)
-        ui?.setColor(colors.fg)
+        ui?.setColor(colors.fg, colors.ref)
         root.setBackgroundColor(colors.bg)
         window.decorView.setBackgroundColor(colors.bg)
         footer.setTextColor(colors.footer)
@@ -705,7 +716,7 @@ class ReaderActivity : AppCompatActivity(), ReaderPageView.Host, OriginalPageVie
                         }
                     )
                 }
-                else -> vm.annotations?.highlights.orEmpty().sortedWith(compareBy({ it.block }, { it.start })).map { h ->
+                2 -> vm.annotations?.highlights.orEmpty().sortedWith(compareBy({ it.block }, { it.start })).map { h ->
                     NavItem(
                         "„${h.text}“", "Seite ${h.pdfPage + 1}  ·  ${dateFormat.format(Date(h.created))}", 0,
                         {
@@ -720,19 +731,32 @@ class ReaderActivity : AppCompatActivity(), ReaderPageView.Host, OriginalPageVie
                         }
                     )
                 }
+                else -> vm.content?.allNotes().orEmpty().map { f ->
+                    NavItem(
+                        f.text,
+                        (if (f.marker.isEmpty()) "" else "Quelle ${f.marker}  ·  ") + "Seite ${f.pdfPage + 1}", 0,
+                        {
+                            dlg.dismiss()
+                            goToPdfPage(f.pdfPage)
+                        }
+                    )
+                }
             }
             adapter.items = items
             empty.isVisible = items.isEmpty()
             empty.text = when (tab) {
-                0 -> "Dieses PDF hat kein Inhaltsverzeichnis."
+                0 -> "Dieses Buch hat kein Inhaltsverzeichnis."
                 1 -> "Noch keine Lesezeichen.\nTippe oben im Menü auf das Lesezeichen-Symbol, um die aktuelle Seite zu merken."
-                else -> "Noch keine Markierungen.\nWort lange drücken, ziehen und in der Karte auf „Markieren“ tippen."
+                2 -> "Noch keine Markierungen.\nWort lange drücken, ziehen und in der Karte auf „Markieren“ tippen."
+                else -> "In diesem Buch wurden keine Quellen am Seitenende gefunden."
             }
         }
 
         tabs.addTab(tabs.newTab().setText("Inhalt"))
         tabs.addTab(tabs.newTab().setText("Lesezeichen"))
         tabs.addTab(tabs.newTab().setText("Markierungen"))
+        tabs.addTab(tabs.newTab().setText("Quellen"))
+        tabs.tabMode = TabLayout.MODE_SCROLLABLE
         tabs.addOnTabSelectedListener(object : TabLayout.OnTabSelectedListener {
             override fun onTabSelected(tab: TabLayout.Tab) {
                 show(tab.position)
@@ -825,6 +849,10 @@ class ReaderActivity : AppCompatActivity(), ReaderPageView.Host, OriginalPageVie
         groupMargin.addOnButtonCheckedListener { _, id, checked ->
             if (checked && !binding) changeSettings { it.copy(margin = marginIds.indexOf(id).coerceAtLeast(0)) }
         }
+        groupImages.addOnButtonCheckedListener { _, id, checked ->
+            if (checked && !binding) changeSettings { it.copy(images = imageIds.indexOf(id).coerceAtLeast(0)) }
+        }
+        swImagesDark.setOnCheckedChangeListener { _, c -> if (!binding) changeSettings { it.copy(imagesOnlyDark = c) } }
         groupTheme.addOnButtonCheckedListener { _, id, checked ->
             if (checked && !binding) changeSettings { it.copy(theme = themeIds.indexOf(id).coerceAtLeast(0)) }
         }
@@ -838,6 +866,7 @@ class ReaderActivity : AppCompatActivity(), ReaderPageView.Host, OriginalPageVie
         swVolume.setOnCheckedChangeListener { _, c -> if (!binding) changeSettings { it.copy(volumeKeys = c) } }
         swKeepOn.setOnCheckedChangeListener { _, c -> if (!binding) changeSettings { it.copy(keepScreenOn = c) } }
         swAutoVocab.setOnCheckedChangeListener { _, c -> if (!binding) changeSettings { it.copy(autoVocab = c) } }
+        swShowNotes.setOnCheckedChangeListener { _, c -> if (!binding) changeSettings { it.copy(showNotes = c) } }
         swDefinition.setOnCheckedChangeListener { _, c -> if (!binding) changeSettings { it.copy(showDefinition = c) } }
         swAutoBrightness.setOnCheckedChangeListener { _, c ->
             if (!binding) changeSettings { it.copy(brightness = if (c) -1f else max(0.05f, seekBrightness.progress / 100f)) }
@@ -862,12 +891,15 @@ class ReaderActivity : AppCompatActivity(), ReaderPageView.Host, OriginalPageVie
         groupSpacing.check(spacingIds[s.lineSpacing.coerceIn(0, 2)])
         groupMargin.check(marginIds[s.margin.coerceIn(0, 2)])
         groupTheme.check(themeIds[s.theme.coerceIn(0, 3)])
+        groupImages.check(imageIds[s.images.coerceIn(0, 2)])
+        swImagesDark.isChecked = s.imagesOnlyDark
         groupPara.check(if (vm.paraMode == 1) R.id.paraOff else R.id.paraAuto)
         swJustify.isChecked = s.justify
         swFullscreen.isChecked = s.fullscreen
         swVolume.isChecked = s.volumeKeys
         swKeepOn.isChecked = s.keepScreenOn
         swAutoVocab.isChecked = s.autoVocab
+        swShowNotes.isChecked = s.showNotes
         swDefinition.isChecked = s.showDefinition
         swAutoBrightness.isChecked = s.brightness < 0f
         if (s.brightness >= 0f) seekBrightness.progress = (s.brightness * 100).toInt()
@@ -886,10 +918,22 @@ class ReaderActivity : AppCompatActivity(), ReaderPageView.Host, OriginalPageVie
             .setOnCancelListener { bindSettings() }
             .setPositiveButton("Neu aufbereiten") { _, _ ->
                 val id = vm.bookId ?: return@setPositiveButton
-                vm.setParagraphMode(m) {
-                    vm.panelOpen = false
-                    finish()
-                    startActivity(Intent(this, ReaderActivity::class.java).putExtra(EXTRA_ID, id))
+                vm.setParagraphMode(m) { rebuilt ->
+                    if (rebuilt) {
+                        vm.panelOpen = false
+                        finish()
+                        startActivity(Intent(this, ReaderActivity::class.java).putExtra(EXTRA_ID, id))
+                    } else {
+                        bindSettings()
+                        MaterialAlertDialogBuilder(this)
+                            .setTitle("Gespeichert")
+                            .setMessage(
+                                "Bei gescannten Büchern wirkt die Einstellung erst, wenn der Text neu erkannt wird.\n\n" +
+                                    "Dafür in der Bibliothek das Buch lange drücken → „Seiten verwalten“ → „Seiten neu erkennen“."
+                            )
+                            .setPositiveButton("OK", null)
+                            .show()
+                    }
                 }
             }
             .show()
@@ -910,10 +954,12 @@ class ReaderActivity : AppCompatActivity(), ReaderPageView.Host, OriginalPageVie
         }
         if (old.theme != new.theme) applyTheme()
         if (old.fontSizeSp != new.fontSizeSp || old.font != new.font || old.lineSpacing != new.lineSpacing ||
-            old.margin != new.margin || old.justify != new.justify
+            old.margin != new.margin || old.justify != new.justify || old.showNotes != new.showNotes ||
+            old.imageMode() != new.imageMode()
         ) {
             updateSpec()
         }
+        if (old.imageMode() != new.imageMode()) invalidatePages()
         applyWindowSettings()
         bindSettings()
         updatePlayer()
@@ -996,7 +1042,7 @@ class ReaderActivity : AppCompatActivity(), ReaderPageView.Host, OriginalPageVie
         btnStar.setImageResource(if (st.saved) R.drawable.ic_star else R.drawable.ic_star_border)
         if (st.saved) btnStar.setColorFilter(0xFFF5B400.toInt()) else btnStar.clearColorFilter()
         btnStar.contentDescription = if (st.saved) "Aus Vokabelliste entfernen" else "In Vokabelliste speichern"
-        btnHighlight.isVisible = modeApplied == 0
+        btnHighlight.isVisible = modeApplied == 0 && st.sel.block >= 0
         btnHighlight.text = if (st.highlight != null) "Markierung entfernen" else "Markieren"
     }
 
@@ -1082,6 +1128,91 @@ class ReaderActivity : AppCompatActivity(), ReaderPageView.Host, OriginalPageVie
     }
 
     override fun highlightsFor(block: Int): List<Highlight> = vm.annotations?.highlightsFor(block) ?: emptyList()
+
+    override fun onRefTapped(marker: String, pdfPage: Int) {
+        val c = vm.content ?: return
+        lifecycleScope.launch {
+            // Das Literaturverzeichnis wird beim ersten Mal aus dem ganzen Buch gesammelt.
+            val notes = kotlinx.coroutines.withContext(Dispatchers.Default) { c.resolve(marker, pdfPage) }
+            if (notes.isEmpty()) {
+                toast("Zu Verweis „$marker“ wurde keine Quelle gefunden.")
+                return@launch
+            }
+            showNotes(notes, marker)
+        }
+    }
+
+    /** Quelle(n) als Karte von unten einblenden, mit Übersetzen und Kopieren. */
+    private fun showNotes(notes: List<Footnote>, marker: String) {
+        closeTranslation()
+        val dlg = BottomSheetDialog(this)
+        val v = layoutInflater.inflate(R.layout.sheet_note, root, false)
+        dlg.setContentView(v)
+        val single = notes.size == 1
+        val first = notes[0]
+        v.findViewById<TextView>(R.id.noteMarker).text = when {
+            single && first.marker.isEmpty() -> "Quelle"
+            single -> "Quelle ${first.marker}"
+            else -> "Quellen $marker"
+        }
+        v.findViewById<TextView>(R.id.notePage).text =
+            if (single) "Seite ${first.pdfPage + 1}" else "${notes.size} Einträge"
+        val plain = notes.joinToString("\n\n") { if (single || it.marker.isEmpty()) it.text else "[${it.marker}] ${it.text}" }
+        v.findViewById<TextView>(R.id.noteText).text = if (single) first.text else {
+            val sb = SpannableStringBuilder()
+            for ((i, n) in notes.withIndex()) {
+                if (i > 0) sb.append("\n\n")
+                val s0 = sb.length
+                sb.append(if (n.marker.isEmpty()) "•" else n.marker)
+                sb.setSpan(StyleSpan(Typeface.BOLD), s0, sb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                sb.append("  ").append(n.text)
+            }
+            sb
+        }
+        v.findViewById<View>(R.id.noteCopy).setOnClickListener {
+            getSystemService(ClipboardManager::class.java)?.setPrimaryClip(ClipData.newPlainText("Quelle", plain))
+            if (Build.VERSION.SDK_INT < 33) toast("Kopiert")
+            dlg.dismiss()
+        }
+        v.findViewById<View>(R.id.noteTranslate).setOnClickListener {
+            dlg.dismiss()
+            vm.startLookup(Selection(-1, 0, plain.length, plain, plain))
+        }
+        dlg.show()
+    }
+
+    override val imageMode: Int
+        get() = vm.settings.imageMode()
+
+    /** Ausgeblendete Abbildung auf Wunsch groß ansehen (Tippen schließt). */
+    override fun onImageTapped(block: Int) {
+        val b = pageSet.blocks.getOrNull(block) as? ImageBlock ?: return
+        val dm = resources.displayMetrics
+        var w = dm.widthPixels
+        var h = (w / b.aspect).toInt()
+        if (h > dm.heightPixels) {
+            h = dm.heightPixels
+            w = (h * b.aspect).toInt()
+        }
+        if (w <= 0 || h <= 0) return
+        val iv = ImageView(this).apply {
+            scaleType = ImageView.ScaleType.FIT_CENTER
+            setBackgroundColor(0xFF000000.toInt())
+            contentDescription = "Abbildung"
+            colorFilter = colors.imageFilter
+        }
+        val dlg = Dialog(this, android.R.style.Theme_Black_NoTitleBar_Fullscreen)
+        dlg.setContentView(iv)
+        iv.setOnClickListener { dlg.dismiss() }
+        dlg.show()
+        lifecycleScope.launch {
+            val bmp = vm.loadRegion("v:$block:${w}x$h", b, w, h)
+            if (bmp != null) iv.setImageBitmap(bmp) else {
+                dlg.dismiss()
+                toast("Die Abbildung konnte nicht geladen werden.")
+            }
+        }
+    }
 
     override fun speakingRange(): TextRange? = speaking
 

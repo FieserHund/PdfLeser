@@ -4,15 +4,21 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
+import android.graphics.Color
+import android.graphics.ColorMatrix
+import android.graphics.ColorMatrixColorFilter
 import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.RectF
 import android.text.StaticLayout
+import android.text.TextPaint
+import android.util.TypedValue
 import android.view.GestureDetector
 import android.view.HapticFeedbackConstants
 import android.view.MotionEvent
 import android.view.View
 import android.widget.Magnifier
+import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
 
@@ -34,6 +40,10 @@ class ReaderPageView(context: Context) : View(context) {
         fun onSelectionCleared()
         fun onWordSelected(view: ReaderPageView, sel: Selection, top: Float, bottom: Float)
         fun highlightsFor(block: Int): List<Highlight>
+        fun onRefTapped(marker: String, pdfPage: Int)
+        /** 0 = Abbildungen zeigen, 1 = abdunkeln, 2 = ausblenden (siehe ReaderSettings). */
+        val imageMode: Int
+        fun onImageTapped(block: Int)
         fun speakingRange(): TextRange?
         fun pageHasBookmark(pageIndex: Int): Boolean
         fun cachedImage(frag: ImageFrag, block: ImageBlock): Bitmap?
@@ -59,6 +69,25 @@ class ReaderPageView(context: Context) : View(context) {
     private val imgPaint = Paint(Paint.FILTER_BITMAP_FLAG or Paint.ANTI_ALIAS_FLAG)
     private val placeholderPaint = Paint()
     private val ribbonPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val phRect = RectF()
+    private val phPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE }
+    private val phText = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
+        textAlign = Paint.Align.CENTER
+        textSize = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, 12.5f, resources.displayMetrics)
+    }
+    private val dimDark = dimFilter(0.28f)
+    private val dimLight = dimFilter(0.55f)
+
+    private fun dimFilter(k: Float) = ColorMatrixColorFilter(
+        ColorMatrix(
+            floatArrayOf(
+                k, 0f, 0f, 0f, 0f,
+                0f, k, 0f, 0f, 0f,
+                0f, 0f, k, 0f, 0f,
+                0f, 0f, 0f, 1f, 0f
+            )
+        )
+    )
     private val ribbonPath = Path()
     private val dst = RectF()
 
@@ -114,6 +143,8 @@ class ReaderPageView(context: Context) : View(context) {
             return
         }
         if (h.consumeTapForPopup()) return
+        if (tapOnRef(x, y)) return
+        if (tapOnImage(x, y)) return
         if (tapOnHighlight(x, y)) return
         val zone = when {
             x < width * 0.3f -> -1
@@ -121,6 +152,58 @@ class ReaderPageView(context: Context) : View(context) {
             else -> 0
         }
         h.onTapZone(zone)
+    }
+
+    /**
+     * Tippen auf einen Quellenverweis öffnet die zugehörige Quelle. Hochgestellte Zahlen sind
+     * winzig – deshalb zählt ein Bereich von gut einer Fingerkuppe um die Zahl herum.
+     */
+    private fun tapOnRef(x: Float, y: Float): Boolean {
+        val h = host ?: return false
+        val ui = h.ui ?: return false
+        val hit = hit(x, y, -1) ?: return false
+        val f = page?.frags?.getOrNull(hit.frag) as? TextFrag ?: return false
+        val b = h.pageSet.blocks.getOrNull(f.block) as? TextBlock ?: return false
+        if (b.refs.none { it.cite }) return false
+        val layout = hit.layout
+        val line = layout.getLineForOffset(hit.offset.coerceIn(0, b.text.length))
+        val cx = x - ui.spec.left
+        val tol = 14f * density
+        var best: Ref? = null
+        var bestDist = Float.MAX_VALUE
+        for (r in b.refs) {
+            if (!r.cite || r.end > b.text.length || r.end <= r.start) continue
+            if (layout.getLineForOffset(r.start) != line) continue
+            val x0 = layout.getPrimaryHorizontal(r.start)
+            val x1 = if (r.end < layout.getLineEnd(line)) layout.getPrimaryHorizontal(r.end) else layout.getLineRight(line)
+            if (cx < min(x0, x1) - tol || cx > max(x0, x1) + tol) continue
+            val d = abs(cx - (x0 + x1) / 2f)
+            if (d < bestDist) {
+                bestDist = d
+                best = r
+            }
+        }
+        val r = best ?: return false
+        h.onRefTapped(r.marker, b.pdfPage)
+        return true
+    }
+
+    /** Eine ausgeblendete Abbildung lässt sich durch Antippen trotzdem ansehen. */
+    private fun tapOnImage(x: Float, y: Float): Boolean {
+        val h = host ?: return false
+        if (h.imageMode != ReaderSettings.IMAGES_HIDE) return false
+        val p = page ?: return false
+        val ui = h.ui ?: return false
+        for (f in p.frags) {
+            if (f !is ImageFrag) continue
+            val l = ui.spec.left + f.x
+            val t = ui.spec.top + f.y
+            if (x >= l && x <= l + f.w && y >= t - 6f * density && y <= t + f.h + 6f * density) {
+                h.onImageTapped(f.block)
+                return true
+            }
+        }
+        return false
     }
 
     /** Tippen auf eine Markierung öffnet sie (Übersetzung + „Markierung entfernen“). */
@@ -195,7 +278,26 @@ class ReaderPageView(context: Context) : View(context) {
 
     private fun isWordChar(c: Char) = c.isLetterOrDigit() || c == '\'' || c == '’' || c == '-'
 
-    private fun wordAt(text: CharSequence, offset: Int): IntArray? {
+    private fun refsOf(fragIndex: Int): List<Ref> {
+        val f = page?.frags?.getOrNull(fragIndex) as? TextFrag ?: return emptyList()
+        return (host?.pageSet?.blocks?.getOrNull(f.block) as? TextBlock)?.refs ?: emptyList()
+    }
+
+    private fun wordAt(text: CharSequence, offset: Int, refs: List<Ref> = emptyList()): IntArray? {
+        val w = plainWordAt(text, offset) ?: return null
+        var s = w[0]
+        var e = w[1]
+        for (r in refs) {
+            if (!r.cite) continue
+            if (r.start in (s + 1) until e) e = r.start
+            if (r.end in (s + 1) until e && r.start <= s) s = r.end
+        }
+        while (s < e && !text[s].isLetterOrDigit()) s++
+        while (e > s && !text[e - 1].isLetterOrDigit()) e--
+        return if (e > s) intArrayOf(s, e) else null
+    }
+
+    private fun plainWordAt(text: CharSequence, offset: Int): IntArray? {
         if (text.isEmpty()) return null
         var o = offset.coerceIn(0, text.length - 1)
         if (!isWordChar(text[o]) && o > 0 && isWordChar(text[o - 1])) o--
@@ -212,7 +314,7 @@ class ReaderPageView(context: Context) : View(context) {
     private fun startSelection(x: Float, y: Float) {
         val h = host ?: return
         val hit = hit(x, y, -1) ?: return
-        val w = wordAt(hit.layout.text, hit.offset) ?: return
+        val w = wordAt(hit.layout.text, hit.offset, refsOf(hit.frag)) ?: return
         selFrag = hit.frag
         anchorStart = w[0]
         anchorEnd = w[1]
@@ -233,7 +335,7 @@ class ReaderPageView(context: Context) : View(context) {
         val layout = hit.layout
         val lo = layout.getLineStart(f.startLine)
         val hi = layout.getLineEnd(f.endLine)
-        val w = wordAt(layout.text, hit.offset.coerceIn(lo, maxOf(lo, hi - 1)))
+        val w = wordAt(layout.text, hit.offset.coerceIn(lo, maxOf(lo, hi - 1)), refsOf(selFrag))
         val ws = w?.get(0) ?: hit.offset
         val we = w?.get(1) ?: hit.offset
         val ns = minOf(anchorStart, ws).coerceAtLeast(lo)
@@ -288,6 +390,7 @@ class ReaderPageView(context: Context) : View(context) {
         val left = ui.spec.left.toFloat()
         val top0 = ui.spec.top.toFloat()
         val speaking = h.speakingRange()
+        val mode = h.imageMode
         for (fi in p.frags.indices) {
             val f = p.frags[fi]
             if (f is TextFrag) {
@@ -315,9 +418,17 @@ class ReaderPageView(context: Context) : View(context) {
             } else if (f is ImageFrag) {
                 val b = blocks.getOrNull(f.block) as? ImageBlock ?: continue
                 dst.set(left + f.x, top0 + f.y, left + f.x + f.w, top0 + f.y + f.h)
+                if (mode == ReaderSettings.IMAGES_HIDE) {
+                    drawHiddenImage(canvas, dst, c)
+                    continue
+                }
                 val bmp = h.cachedImage(f, b)
                 if (bmp != null) {
-                    imgPaint.colorFilter = c.imageFilter
+                    imgPaint.colorFilter = if (mode == ReaderSettings.IMAGES_DIM) {
+                        if (Color.luminance(c.bg) < 0.5f) dimDark else dimLight
+                    } else {
+                        c.imageFilter
+                    }
                     canvas.drawBitmap(bmp, null, dst, imgPaint)
                 } else {
                     placeholderPaint.color = c.placeholder
@@ -330,6 +441,21 @@ class ReaderPageView(context: Context) : View(context) {
             val rightMargin = width - ui.spec.left - ui.spec.width
             drawRibbon(canvas, width - max(rightMargin / 2f, 18f * density), top0 + 6f * density, c.ribbon)
         }
+    }
+
+    /** Ausgeblendete Abbildung: nur ein dezenter Rahmen mit Hinweis, kein helles Bild. */
+    private fun drawHiddenImage(canvas: Canvas, r: RectF, c: ThemeColors) {
+        val hgt = min(r.height(), 30f * density)
+        val cy = r.centerY()
+        phRect.set(r.left, cy - hgt / 2f, r.right, cy + hgt / 2f)
+        phPaint.strokeWidth = 1f * density
+        phPaint.color = (c.footer and 0x00FFFFFF) or 0x44000000
+        canvas.drawRoundRect(phRect, 8f * density, 8f * density, phPaint)
+        phText.color = (c.footer and 0x00FFFFFF) or (0xA0 shl 24)
+        val label = if (phRect.width() > 280f * density) "Abbildung ausgeblendet · antippen zum Anzeigen"
+        else "Abbildung · antippen"
+        val fm = phText.fontMetrics
+        canvas.drawText(label, phRect.centerX(), cy - (fm.ascent + fm.descent) / 2f, phText)
     }
 
     private fun drawRibbon(canvas: Canvas, cx: Float, bottom: Float, color: Int) {

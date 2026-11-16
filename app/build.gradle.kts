@@ -71,4 +71,8 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
     // PDF-Textextraktion (reiner Java-Port von Apache PDFBox)
     implementation("com.tom-roush:pdfbox-android:2.0.27.0")
+    // Buchseiten scannen: Kamera mit automatischem Zuschnitt + Texterkennung auf dem Gerät
+    implementation("com.google.android.gms:play-services-mlkit-document-scanner:16.0.0")
+    implementation("com.google.mlkit:text-recognition:16.0.1")
+    implementation("androidx.exifinterface:exifinterface:1.3.7")
 }
